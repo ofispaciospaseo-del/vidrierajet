@@ -4,13 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vidriera VentaniYA - Soluciones 1001</title>
-  <!-- Tipografías: Casio 80s / Digital / Neon -->
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-color: #0c0f1d;
       --neon-cyan: #00f3ff;
-      --neon-white: #ffffff;
       --panel-bg: #161b33;
     }
 
@@ -119,15 +117,19 @@
   <h1>VentaniYA Soluciones 1001 — Vidriera de Ventas</h1>
 
   <div class="container">
-    <!-- PANEL DE EDICIÓN -->
     <div class="controls-panel">
       <h3>Configurar Aviso</h3>
       
       <div class="form-group">
-        <label for="imageSelect">Estampilla / Imagen del Repositorio</label>
+        <label for="imageSelect">Estampilla (Desde el Repositorio)</label>
         <select id="imageSelect">
-          <option value="">Buscando imágenes en el repositorio...</option>
+          <option value="">Cargando imágenes de GitHub...</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label for="localImgInput">O Cargar Estampilla Directa desde PC</label>
+        <input type="file" id="localImgInput" accept="image/*">
       </div>
 
       <div class="form-group">
@@ -146,31 +148,27 @@
       </div>
 
       <div class="form-group">
-        <label for="logoInput">Subir Logo del Aviso Nuevo</label>
+        <label for="logoInput">Subir Logo Comercial</label>
         <input type="file" id="logoInput" accept="image/*">
       </div>
 
       <button class="btn-download" id="downloadBtn">Descargar PNG Fijo</button>
     </div>
 
-    <!-- VISTA PREVIA (CANVAS CON LÍNEA DE TIEMPO EN VIVO) -->
     <div class="preview-panel">
       <canvas id="mainCanvas" width="1000" height="750"></canvas>
     </div>
   </div>
 
   <script>
-    // =========================================================================
-    // CONFIGURACIÓN YA VINCULADA A TU REPOSITORIO
-    // =========================================================================
     const GITHUB_USER = 'ofispaciospaseo-del';
     const GITHUB_REPO = 'vidrierajet';
     const FOLDER_PATH = 'assets/images';
 
-    // Elementos del DOM
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
     const imageSelect = document.getElementById('imageSelect');
+    const localImgInput = document.getElementById('localImgInput');
     const addressInput = document.getElementById('addressInput');
     const phoneInput = document.getElementById('phoneInput');
     const emailInput = document.getElementById('emailInput');
@@ -183,13 +181,12 @@
 
     baseImage.crossOrigin = "anonymous";
 
-    // 1. CARGA AUTOMÁTICA DE IMÁGENES DESDE LA API DE GITHUB
     async function fetchRepoImages() {
       try {
         const response = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FOLDER_PATH}`);
         
         if (!response.ok) {
-          throw new Error('Aún no hay imágenes en la carpeta assets/images');
+          throw new Error('No se pudo acceder a la carpeta assets/images');
         }
 
         const files = await response.json();
@@ -198,34 +195,42 @@
         imageSelect.innerHTML = '';
 
         if (imageFiles.length === 0) {
-          imageSelect.innerHTML = '<option value="">No hay imágenes en /assets/images/</option>';
+          imageSelect.innerHTML = '<option value="">No hay imágenes en assets/images</option>';
           return;
         }
 
         imageFiles.forEach((file, index) => {
           const option = document.createElement('option');
           option.value = file.download_url;
-          option.textContent = `Estampilla ${String(index + 1).padStart(3, '0')} - ${file.name}`;
+          option.textContent = `Foto ${String(index + 1).padStart(3, '0')} - ${file.name}`;
           imageSelect.appendChild(option);
         });
 
-        // Cargar la primera imagen por defecto
         baseImage.src = imageFiles[0].download_url;
 
       } catch (error) {
-        imageSelect.innerHTML = '<option value="https://picsum.photos/id/10/800/600">Imagen Muestra 001 (Sube fotos a /assets/images/)</option>';
-        baseImage.src = imageSelect.value;
+        console.warn('API de GitHub no disponible:', error);
+        imageSelect.innerHTML = '<option value="">Carga una foto local desde el botón de abajo</option>';
       }
     }
 
-    // Cambiar imagen base seleccionada
     imageSelect.addEventListener('change', (e) => {
       if (e.target.value) {
         baseImage.src = e.target.value;
       }
     });
 
-    // Cargar Logo subido localmente
+    localImgInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          baseImage.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
     logoInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -242,11 +247,9 @@
       return 'ID-' + Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
     }
 
-    // 2. RENDERIZADO EN TIEMPO REAL CON LÍNEA DE TIEMPO EN MILISEGUNDOS
     function renderLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Dibujar la imagen base subida
       if (baseImage.complete && baseImage.naturalWidth !== 0) {
         ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
       } else {
@@ -254,14 +257,12 @@
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
-      // Degradado inferior
       const gradient = ctx.createLinearGradient(0, canvas.height - 200, 0, canvas.height);
       gradient.addColorStop(0, 'rgba(0,0,0,0)');
       gradient.addColorStop(1, 'rgba(0,0,0,0.85)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, canvas.height - 200, canvas.width, 200);
 
-      // LÍNEA DE TIEMPO CASIO 80s (MILISEGUNDOS)
       const now = new Date();
       const hrs = String(now.getHours()).padStart(2, '0');
       const mins = String(now.getMinutes()).padStart(2, '0');
@@ -271,7 +272,6 @@
       const timeStr = `${hrs}:${mins}:${secs}.${ms}`;
       const dateStr = now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
 
-      // Horario Neón Celeste Digital
       ctx.font = '900 42px "Orbitron", monospace';
       ctx.fillStyle = '#00f3ff';
       ctx.shadowColor = '#00f3ff';
@@ -279,20 +279,17 @@
       ctx.textAlign = 'left';
       ctx.fillText(timeStr, 30, canvas.height - 110);
 
-      // Fecha Neón Blanco
       ctx.font = '700 18px "Roboto", sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = '#ffffff';
       ctx.shadowBlur = 8;
       ctx.fillText(dateStr, 30, canvas.height - 75);
 
-      // Hash respaldatorio
       ctx.font = '14px monospace';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.shadowBlur = 0;
       ctx.fillText(`HASH: ${currentHash}`, 30, canvas.height - 45);
 
-      // SELLO EMULACIÓN POSTAL ATÓMICO NEÓN CELESTE
       ctx.save();
       const stampX = canvas.width - 140;
       const stampY = canvas.height - 110;
@@ -322,7 +319,6 @@
       ctx.fillText("1001", stampX, stampY + 25);
       ctx.restore();
 
-      // PUBLICIDAD REESCRITA (DATOS EDITABLES EN PANEL)
       ctx.fillStyle = 'rgba(12, 15, 29, 0.85)';
       ctx.strokeStyle = '#00f3ff';
       ctx.lineWidth = 1;
@@ -346,11 +342,9 @@
       requestAnimationFrame(renderLoop);
     }
 
-    // Inicializar
     fetchRepoImages();
     requestAnimationFrame(renderLoop);
 
-    // 3. DESCARGAR PNG FIJO
     downloadBtn.addEventListener('click', () => {
       const link = document.createElement('a');
       link.download = `Aviso_VentaniYA_${Date.now()}.png`;
