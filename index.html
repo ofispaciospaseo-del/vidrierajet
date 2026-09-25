@@ -136,14 +136,14 @@
       <h3>Edición del Aviso Publicitario</h3>
       
       <div class="form-group">
-        <label for="imageSelect">Seleccionar Estampilla Fija (GitHub)</label>
+        <label for="imageSelect">Estampilla (Desde Repositorio GitHub)</label>
         <select id="imageSelect">
           <option value="">Cargando imágenes de GitHub...</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label for="localImgInput">O Seleccionar Estampilla desde Tu Equipo</label>
+        <label for="localImgInput">O Cargar Estampilla Persistente desde PC</label>
         <input type="file" id="localImgInput" accept="image/*">
       </div>
 
@@ -202,6 +202,33 @@
 
     baseImage.crossOrigin = "anonymous";
 
+    function loadSavedData() {
+      if (localStorage.getItem('v_address')) addressInput.value = localStorage.getItem('v_address');
+      if (localStorage.getItem('v_phone')) phoneInput.value = localStorage.getItem('v_phone');
+      if (localStorage.getItem('v_email')) emailInput.value = localStorage.getItem('v_email');
+      
+      const savedBaseImg = localStorage.getItem('v_baseImage');
+      if (savedBaseImg) {
+        baseImage.src = savedBaseImg;
+      }
+
+      const savedLogoImg = localStorage.getItem('v_logoImage');
+      if (savedLogoImg) {
+        uploadedLogo = new Image();
+        uploadedLogo.src = savedLogoImg;
+      }
+    }
+
+    function saveTextData() {
+      localStorage.setItem('v_address', addressInput.value);
+      localStorage.setItem('v_phone', phoneInput.value);
+      localStorage.setItem('v_email', emailInput.value);
+    }
+
+    [addressInput, phoneInput, emailInput].forEach(input => {
+      input.addEventListener('input', saveTextData);
+    });
+
     async function fetchRepoImages() {
       try {
         const response = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FOLDER_PATH}`);
@@ -224,7 +251,12 @@
           imageSelect.appendChild(option);
         });
 
-        baseImage.src = imageFiles[0].download_url;
+        if (!localStorage.getItem('v_baseImage')) {
+          baseImage.src = imageFiles[0].download_url;
+          localStorage.setItem('v_baseImage', imageFiles[0].download_url);
+        } else {
+          imageSelect.value = localStorage.getItem('v_baseImage');
+        }
 
       } catch (error) {
         imageSelect.innerHTML = '<option value="">Elige una foto local abajo</option>';
@@ -234,6 +266,7 @@
     imageSelect.addEventListener('change', (e) => {
       if (e.target.value) {
         baseImage.src = e.target.value;
+        localStorage.setItem('v_baseImage', e.target.value);
       }
     });
 
@@ -243,6 +276,7 @@
         const reader = new FileReader();
         reader.onload = (event) => {
           baseImage.src = event.target.result;
+          localStorage.setItem('v_baseImage', event.target.result);
         };
         reader.readAsDataURL(file);
       }
@@ -255,6 +289,7 @@
         reader.onload = (event) => {
           uploadedLogo = new Image();
           uploadedLogo.src = event.target.result;
+          localStorage.setItem('v_logoImage', event.target.result);
         };
         reader.readAsDataURL(file);
       }
@@ -279,7 +314,6 @@
     function drawCanvas(fixedDate = null) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 1. DIBUJAR IMAGEN BASE FIJA
       if (baseImage.complete && baseImage.naturalWidth !== 0) {
         ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
       } else {
@@ -287,14 +321,12 @@
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
-      // Degradado inferior para lectura del reloj
       const gradient = ctx.createLinearGradient(0, canvas.height - 200, 0, canvas.height);
       gradient.addColorStop(0, 'rgba(0,0,0,0)');
       gradient.addColorStop(1, 'rgba(0,0,0,0.85)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, canvas.height - 200, canvas.width, 200);
 
-      // 2. RELOJ CASIO 80s DIGITAL EN MILISEGUNDOS
       const now = fixedDate || (isFrozen && frozenDate ? frozenDate : new Date());
       const hrs = String(now.getHours()).padStart(2, '0');
       const mins = String(now.getMinutes()).padStart(2, '0');
@@ -322,7 +354,6 @@
       ctx.shadowBlur = 0;
       ctx.fillText(`HASH: ${currentHash}`, 30, canvas.height - 45);
 
-      // 3. SELLO POSTAL ATÓMICO NEÓN CELESTE (VentaniYA 1001)
       ctx.save();
       const stampX = canvas.width - 140;
       const stampY = canvas.height - 110;
@@ -352,7 +383,6 @@
       ctx.fillText("1001", stampX, stampY + 25);
       ctx.restore();
 
-      // 4. BANNER PUBLICITARIO SUPERPUESTO Y EDITABLE
       ctx.fillStyle = 'rgba(12, 15, 29, 0.85)';
       ctx.strokeStyle = '#00f3ff';
       ctx.lineWidth = 1;
@@ -379,10 +409,10 @@
       requestAnimationFrame(renderLoop);
     }
 
+    loadSavedData();
     fetchRepoImages();
     requestAnimationFrame(renderLoop);
 
-    // BOTÓN DE DESCARGA: CONGELA EL MOMENTO EXACTO Y DESCARGA EL PNG FIJO
     downloadBtn.addEventListener('click', () => {
       const exportDate = isFrozen && frozenDate ? frozenDate : new Date();
       drawCanvas(exportDate);
